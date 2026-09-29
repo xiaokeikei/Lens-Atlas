@@ -5,6 +5,7 @@ import subprocess
 import tempfile
 import time
 import urllib.request
+import urllib.error
 
 from PIL import Image
 from backend import __version__
@@ -41,5 +42,27 @@ with tempfile.TemporaryDirectory(prefix='lens-release-', dir='/tmp') as temporar
 javascript = '\n'.join(path.read_text(encoding='utf-8') for path in Path('/app/frontend/dist/assets').glob('*.js'))
 assert '使用前请先测试并备份' in javascript
 assert '开发者概不负责' in javascript
+assert '仅首次使用时提醒' in javascript
+
+def api(path, body=None, token=None):
+    request = urllib.request.Request('http://127.0.0.1:52032'+path,
+        data=json.dumps(body).encode() if body is not None else None,
+        headers={'Content-Type':'application/json', **({'Authorization':'Bearer '+token} if token else {})})
+    with urllib.request.urlopen(request, timeout=5) as response:
+        return json.load(response)
+
+try:
+    api('/api/usage-notice/accept', {})
+except urllib.error.HTTPError as error:
+    assert error.code == 401
+else:
+    raise AssertionError('Unauthenticated notice acceptance was allowed')
+api('/api/auth/setup', {'password':'synthetic-release-password','setup_code':Path('/data/setup-code.txt').read_text().strip()})
+token = api('/api/auth/login', {'password':'synthetic-release-password'})['token']
+assert api('/api/info', token=token)['usage_notice_accepted'] is False
+assert api('/api/usage-notice/accept', {}, token)['usage_notice_accepted'] is True
+assert api('/api/info', token=token)['usage_notice_accepted'] is True
+from backend.db import Database
+assert Database(Path('/data/library.sqlite3')).setting('usage_notice_accepted') is True
 print(json.dumps({'version': __version__, 'network': 'none', 'temporary_data': True,
-                  'health': 'passed', 'photo_and_video': 'passed', 'risk_notice': 'present'}))
+                  'health': 'passed', 'photo_and_video': 'passed', 'risk_notice': 'persisted-first-use'}))

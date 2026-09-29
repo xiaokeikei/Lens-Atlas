@@ -6,11 +6,11 @@
 >
 > **因使用本软件导致的资料丢失、损坏或其他损失，开发者概不负责，使用风险由用户自行承担。**
 >
-> Windows 客户端与 NAS 网页每次打开或刷新时均显示风险提示，需勾选确认后才能进入。未确认时可关闭窗口或网页退出；此提示不暂停服务端已经运行的任务。添加素材目录时也会再次提醒先测试、先备份。
+> Windows 安装版、免安装版与 Docker 部署仅在首次使用时显示风险提示，勾选确认后记录保存在各自的应用数据中。刷新、重新打开、退出登录、重启或保留数据升级后不再弹出；清空应用数据或使用新的数据目录后需重新确认。NAS 先登录管理员再确认，同一部署无需每个浏览器重复确认。旧版未保存确认记录，升级后需确认一次。此提示不暂停服务端已经运行的任务；添加素材目录时保留行内测试与备份建议。
 
-当前版本 **0.1.4**。新增使用前风险确认提示，并修复缓存草稿被迟到请求覆盖的问题；保留焦距分层浏览、只读图库比对和 Windows 保持登录。更新记录见 CHANGELOG.md。NAS 默认端口为 52032。Docker 镜像内置运行依赖，安装步骤见 DOCKER_RELEASES.md，实际验证见 VALIDATION.md。
+当前版本 **0.1.5**。风险确认改为首次使用时提示并持久保存，后续启动与刷新不再弹出；保留焦距分层浏览、只读图库比对和 Windows 保持登录。更新记录见 CHANGELOG.md。NAS 默认端口为 52032。Docker 镜像内置运行依赖，安装步骤见 DOCKER_RELEASES.md，实际验证见 VALIDATION.md。
 
-公开源码仓库：[xiaokeikei/Lens-Atlas](https://github.com/xiaokeikei/Lens-Atlas)。安装包见 [v0.1.4 Release](https://github.com/xiaokeikei/Lens-Atlas/releases/tag/v0.1.4)，包含 Windows 安装版、免安装版、Docker 在线与离线包及 SHA-256 校验值。旧版本不会自动更新，请下载新版并保留原应用数据目录。
+公开源码仓库：[xiaokeikei/Lens-Atlas](https://github.com/xiaokeikei/Lens-Atlas)。安装包见 [v0.1.5 Release](https://github.com/xiaokeikei/Lens-Atlas/releases/tag/v0.1.5)，包含 Windows 安装版、免安装版、Docker 在线与离线包及 SHA-256 校验值。旧版本不会自动更新，请下载新版并保留原应用数据目录。
 
 只读分析照片与视频：本机独立图库、Windows 客户端连接 NAS、NAS Docker 服务共用 React 界面和 FastAPI / SQLite 后台。
 
@@ -21,13 +21,13 @@
 
 | 使用方式 | Release 附件 |
 | --- | --- |
-| Windows 安装版 | `LensAtlas-0.1.4-Setup-x64.exe` |
-| Windows 免安装版 | `LensAtlas-0.1.4-windows-x64.zip` |
-| NAS 联网构建 | `LensAtlas-0.1.4-docker-online.zip` |
-| NAS 离线导入（linux/amd64） | `LensAtlas-0.1.4-docker-offline-amd64.zip` |
+| Windows 安装版 | `LensAtlas-0.1.5-Setup-x64.exe` |
+| Windows 免安装版 | `LensAtlas-0.1.5-windows-x64.zip` |
+| NAS 联网构建 | `LensAtlas-0.1.5-docker-online.zip` |
+| NAS 离线导入（linux/amd64） | `LensAtlas-0.1.5-docker-offline-amd64.zip` |
 | 完整性校验 | `SHA256SUMS.txt` |
 
-以下 6 张截图由项目作者提供，展示 0.1.3 的实际界面；0.1.4 保留这些功能，并增加下方的风险确认提示。截图中的图库数量、设备名称和素材仅为展示，不代表安装后的默认内容。
+以下 6 张截图由项目作者提供，展示 0.1.3 的实际界面；0.1.5 保留这些功能，并增加下方的风险确认提示。截图中的图库数量、设备名称和素材仅为展示，不代表安装后的默认内容。
 
 <table>
 <tr><td align="center"><b>图库信息主页</b><br/><img src="docs/screenshots/overview.png" alt="图库信息主页与相机、镜头统计" width="380"/></td><td align="center"><b>随机图片展示</b><br/><img src="docs/screenshots/gallery.png" alt="随机图片展示与素材浏览" width="380"/></td></tr>
@@ -35,7 +35,7 @@
 <tr><td align="center"><b>远程登录</b><br/><img src="docs/screenshots/nas-login.png" alt="NAS 登录界面" width="380"/></td><td align="center"><b>设置与维护</b><br/><img src="docs/screenshots/settings.png" alt="缓存容量和服务维护设置" width="380"/></td></tr>
 </table>
 
-<details><summary>0.1.4 使用前风险确认提示</summary>
+<details><summary>0.1.5 使用前风险确认提示</summary>
 
 ![使用前请先测试并备份](docs/screenshots/usage-notice.png)
 

@@ -4,7 +4,14 @@ import path from 'node:path';
 import fs from 'node:fs';
 
 test.beforeEach(async({request})=>{
-  await request.put('/api/desktop/preferences',{headers:{Authorization:'Bearer synthetic-e2e-local-session'},data:{last_connection:null}});
+  const headers={Authorization:'Bearer synthetic-e2e-local-session'};
+  await request.put('/api/desktop/preferences',{headers,data:{last_connection:null}});
+  const connections=await (await request.get('/api/connections',{headers})).json();
+  for(const connection of connections){
+    if(connection.name==='浏览器测试 NAS' && connection.url==='http://127.0.0.1:18766'){
+      expect((await request.delete(`/api/connections/${connection.id}`,{headers})).ok()).toBeTruthy();
+    }
+  }
 });
 
 test('real add → scan → charts → filter → random preview → detail → modes',async({page,request})=>{
@@ -75,6 +82,7 @@ test('NAS login, background scanning and independent browser filters',async({pag
   await page.getByLabel('管理员密码').fill('synthetic-nas-password');
   await expect(page.getByLabel('保持登录并自动连接')).toBeChecked();
   await page.getByRole('button',{name:'登录图库'}).click();
+  await acceptUsageNotice(page);
   await expect(page.locator('.breadcrumb')).toContainText('浏览器测试 NAS');
   await expect(page.getByRole('heading',{name:'让每一次拍摄，留下线索。'})).toBeVisible();
   await page.getByRole('button',{name:'目录与扫描',exact:true}).click();
@@ -93,9 +101,9 @@ test('NAS login, background scanning and independent browser filters',async({pag
   const context=await browser.newContext();
   const browserPage=await context.newPage();
   await browserPage.goto(base);
-  await acceptUsageNotice(browserPage);
   await browserPage.getByLabel('管理员密码').fill('synthetic-nas-password');
   await browserPage.getByRole('button',{name:'登录图库'}).click();
+  await acceptUsageNotice(browserPage);
   await expect(browserPage.locator('.count-pill')).toContainText('31');
   await browserPage.locator('.chart-options button').filter({hasText:'Synthetic Camera B'}).click();
   await expect(browserPage.locator('.filter-chips')).toContainText('Synthetic Camera B');

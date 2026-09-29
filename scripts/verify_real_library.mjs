@@ -37,8 +37,11 @@ try{
   page=browser.contexts()[0].pages().find(p=>p.url().startsWith('http://127.0.0.1:18768'));
   if(!page)throw new Error('Native app page unavailable');
   await page.waitForFunction(()=>!!window.__LENS_TOKEN__);
-  await page.getByRole('checkbox',{name:'我已阅读并理解测试、备份建议及风险提示'}).check();
-  await page.getByRole('button',{name:'确认并进入镜迹'}).click();
+  await page.getByRole('dialog',{name:'使用前请先测试并备份'}).or(page.locator('.count-pill')).waitFor();
+  if(await page.getByRole('dialog',{name:'使用前请先测试并备份'}).isVisible()){
+    await page.getByRole('checkbox',{name:'我已阅读并理解测试、备份建议及风险提示'}).check();
+    await page.getByRole('button',{name:'确认并进入镜迹'}).click();
+  }
   const token=await page.evaluate(()=>window.__LENS_TOKEN__);
   async function api(route,body,method){
     const response=await fetch('http://127.0.0.1:18768'+route,{method:method||(body===undefined?'GET':'POST'),headers:{Authorization:'Bearer '+token,...(body===undefined?{}:{'Content-Type':'application/json'})},body:body===undefined?undefined:JSON.stringify(body)});

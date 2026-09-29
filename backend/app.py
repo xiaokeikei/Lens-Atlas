@@ -226,10 +226,16 @@ def create_app(config=None, start_scanner=True):
     @app.get("/api/info", dependencies=[Depends(authorized)])
     def info():
         return {"version":__version__,"api_version":1,"library_id":db.setting("library_id"),"desktop":config.desktop,
+                "usage_notice_accepted":db.setting("usage_notice_accepted", False) is True,
                 "native_player_available":bool(config.native_player),
                 "tools":{name:bool(tool(name)) for name in ["exiftool","ffmpeg","ffprobe"]},
                 "allowed_roots":[str(p) for p in config.allowed_roots],"cache":scanner.cache_info(),
                 "scan_workers":config.workers,"single_file_timeout":config.timeout}
+
+    @app.post("/api/usage-notice/accept", dependencies=[Depends(authorized)])
+    def accept_usage_notice():
+        db.set_setting("usage_notice_accepted", True)
+        return {"usage_notice_accepted": True}
 
     @app.post('/api/player/open',dependencies=[Depends(local_only)])
     def open_native_player(data: NativePlayerInput):
