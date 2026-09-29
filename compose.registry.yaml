@@ -1,0 +1,34 @@
+name: lens-atlas
+services:
+  lens-atlas:
+    image: ${LENS_IMAGE:?Set LENS_IMAGE to a published versioned image}
+    platform: linux/amd64
+    init: true
+    restart: unless-stopped
+    user: "${LENS_UID:-1000}:${LENS_GID:-1000}"
+    ports:
+      # Default stays private to the NAS host. Set LENS_BIND_IP to the NAS LAN IP for client access.
+      - "${LENS_BIND_IP:-127.0.0.1}:${LENS_PORT:-52032}:52032"
+    environment:
+      LENS_DATA_DIR: /data
+      LENS_MEDIA_ROOTS: /media
+    volumes:
+      - type: bind
+        source: ${LENS_MEDIA_PATH:?Set LENS_MEDIA_PATH in .env}
+        target: /media
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${LENS_APP_PATH:?Set LENS_APP_PATH in .env}
+        target: /data
+        bind:
+          create_host_path: false
+    read_only: true
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    stop_grace_period: 60s
