@@ -62,9 +62,9 @@ docker compose ps
 ## 维护者生成交付包
 
 ```sh
-docker build -t lens-atlas:0.1.3 .
-docker image save lens-atlas:0.1.3 | gzip > lens-atlas-0.1.3-image.tar.gz
-python scripts/package_docker_release.py --image-archive lens-atlas-0.1.3-image.tar.gz
+docker build -t lens-atlas:0.1.4 .
+docker image save lens-atlas:0.1.4 | gzip > lens-atlas-0.1.4-image.tar.gz
+python scripts/package_docker_release.py --image-archive lens-atlas-0.1.4-image.tar.gz
 ```
 
 脚本仅收集白名单源码，生成在线和离线 ZIP、SHA-256 校验值；检查镜像版本、平台、默认端口及镜像层中是否混入个人应用数据。

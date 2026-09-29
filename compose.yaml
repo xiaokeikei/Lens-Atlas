@@ -2,7 +2,7 @@ name: lens-atlas
 services:
   lens-atlas:
     build: .
-    image: lens-atlas:0.1.3
+    image: lens-atlas:0.1.4
     platform: linux/amd64
     init: true
     restart: unless-stopped

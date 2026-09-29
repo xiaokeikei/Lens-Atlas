@@ -1,0 +1,62 @@
+name: Build verified Docker release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check version and draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(python3 -c 'from backend import __version__; print(__version__)')
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          test "$(gh release view "v$VERSION" --json isDraft --jq .isDraft)" = true
+          test "$(git rev-parse HEAD)" = "$(git rev-list -n 1 "v$VERSION" 2>/dev/null || git ls-remote origin "refs/tags/v$VERSION" | cut -f1)"
+      - name: Build application image
+        run: docker build --platform linux/amd64 --tag "lens-atlas:$VERSION" .
+      - name: Test isolated runtime and compare backend source
+        run: |
+          mkdir -p .runtime release
+          docker run -d --name lens-atlas-release-check --network none --read-only --tmpfs /data:uid=1000,gid=1000,mode=700 --tmpfs /tmp "lens-atlas:$VERSION"
+          docker exec -i lens-atlas-release-check python - < scripts/verify_container.py | tee .runtime/docker-runtime-verification.json
+          docker cp lens-atlas-release-check:/app/backend .runtime/image-backend
+          python3 - <<'PY'
+          from pathlib import Path
+          source = {p.relative_to('backend').as_posix(): p.read_bytes() for p in Path('backend').rglob('*.py')}
+          image = {p.relative_to('.runtime/image-backend').as_posix(): p.read_bytes() for p in Path('.runtime/image-backend').rglob('*.py')}
+          assert source == image, 'Image backend differs from release source'
+          print(f'Compared {len(source)} backend files')
+          PY
+      - name: Export and audit packages
+        run: |
+          docker image save "lens-atlas:$VERSION" | gzip > ".runtime/lens-atlas-$VERSION-image.tar.gz"
+          python3 scripts/package_docker_release.py --image-archive ".runtime/lens-atlas-$VERSION-image.tar.gz" --output-dir release
+          python3 - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          from backend import __version__
+          image = Path(f'.runtime/lens-atlas-{__version__}-image.tar.gz')
+          with image.open('rb') as stream:
+              digest = hashlib.file_digest(stream, 'sha256').hexdigest()
+          record = {'image': f'lens-atlas:{__version__}', 'platform': 'linux/amd64',
+                    'application_files_compared': len(list(Path('backend').rglob('*.py'))),
+                    'different_files': [], 'extra_application_files': [],
+                    'image_archive_sha256': digest, 'verified_against_current_source': True,
+                    'runtime_verification': json.loads(Path('.runtime/docker-runtime-verification.json').read_text())}
+          Path('release/docker-verification.json').write_text(json.dumps(record, indent=2) + '\n')
+          PY
+      - name: Upload to draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "v$VERSION" release/*
+      - name: Remove isolated test container
+        if: always()
+        run: docker rm -f -v lens-atlas-release-check || true

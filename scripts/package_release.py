@@ -25,6 +25,8 @@ def main():
         raise SystemExit('Executable changed since verification. Run the packaged verification again.')
     for filename in ['README.md','LICENSE','THIRD_PARTY_NOTICES.md','VALIDATION.md','CHANGELOG.md']:
         shutil.copy2(ROOT/filename,source/filename)
+    if (ROOT/'docs'/'screenshots').is_dir():
+        shutil.copytree(ROOT/'docs'/'screenshots',source/'docs'/'screenshots',dirs_exist_ok=True)
     output=args.output_dir.resolve()
     output.mkdir(parents=True,exist_ok=True)
     target=output/f'LensAtlas-{__version__}-windows-x64.zip'

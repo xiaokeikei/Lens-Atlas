@@ -8,14 +8,38 @@
 >
 > Windows 客户端与 NAS 网页每次打开或刷新时均显示风险提示，需勾选确认后才能进入。未确认时可关闭窗口或网页退出；此提示不暂停服务端已经运行的任务。添加素材目录时也会再次提醒先测试、先备份。
 
-当前版本 **0.1.3**。新增焦距分层浏览、只读图库比对、Windows 保持登录和缓存输入修复；更新记录见 CHANGELOG.md。NAS 默认端口为 52032。Docker 镜像内置运行依赖，安装步骤见 DOCKER_RELEASES.md，实际验证见 VALIDATION.md。
+当前版本 **0.1.4**。新增使用前风险确认提示，并修复缓存草稿被迟到请求覆盖的问题；保留焦距分层浏览、只读图库比对和 Windows 保持登录。更新记录见 CHANGELOG.md。NAS 默认端口为 52032。Docker 镜像内置运行依赖，安装步骤见 DOCKER_RELEASES.md，实际验证见 VALIDATION.md。
 
-公开源码仓库：[xiaokeikei/Lens-Atlas](https://github.com/xiaokeikei/Lens-Atlas)。当前源码另含使用前风险确认弹窗与缓存草稿修复，尚未重新发布包含这些改动的 Windows 安装包或 NAS 离线镜像。现有 0.1.3 成品不会自动获得新提示；请按下文步骤从源码构建。
+公开源码仓库：[xiaokeikei/Lens-Atlas](https://github.com/xiaokeikei/Lens-Atlas)。安装包见 [v0.1.4 Release](https://github.com/xiaokeikei/Lens-Atlas/releases/tag/v0.1.4)，包含 Windows 安装版、免安装版、Docker 在线与离线包及 SHA-256 校验值。旧版本不会自动更新，请下载新版并保留原应用数据目录。
 
 只读分析照片与视频：本机独立图库、Windows 客户端连接 NAS、NAS Docker 服务共用 React 界面和 FastAPI / SQLite 后台。
 
 这是真实实现，不是静态演示。界面默认为空，统计和照片墙全部来自你选择的目录。
 项目内 `.runtime/合成 测试图库` 是开发验收夹具，图片带有 SYNTHETIC FIXTURE 标识，**不代表真实相机样例**。
+
+## 下载与界面预览
+
+| 使用方式 | Release 附件 |
+| --- | --- |
+| Windows 安装版 | `LensAtlas-0.1.4-Setup-x64.exe` |
+| Windows 免安装版 | `LensAtlas-0.1.4-windows-x64.zip` |
+| NAS 联网构建 | `LensAtlas-0.1.4-docker-online.zip` |
+| NAS 离线导入（linux/amd64） | `LensAtlas-0.1.4-docker-offline-amd64.zip` |
+| 完整性校验 | `SHA256SUMS.txt` |
+
+以下 6 张截图由项目作者提供，展示 0.1.3 的实际界面；0.1.4 保留这些功能，并增加下方的风险确认提示。截图中的图库数量、设备名称和素材仅为展示，不代表安装后的默认内容。
+
+<table>
+<tr><td align="center"><b>图库信息主页</b><br/><img src="docs/screenshots/overview.png" alt="图库信息主页与相机、镜头统计" width="380"/></td><td align="center"><b>随机图片展示</b><br/><img src="docs/screenshots/gallery.png" alt="随机图片展示与素材浏览" width="380"/></td></tr>
+<tr><td align="center"><b>目录与扫描</b><br/><img src="docs/screenshots/scan.png" alt="图库目录和分阶段扫描进度" width="380"/></td><td align="center"><b>图库比对</b><br/><img src="docs/screenshots/comparison.png" alt="两个图库之间的只读比对" width="380"/></td></tr>
+<tr><td align="center"><b>远程登录</b><br/><img src="docs/screenshots/nas-login.png" alt="NAS 登录界面" width="380"/></td><td align="center"><b>设置与维护</b><br/><img src="docs/screenshots/settings.png" alt="缓存容量和服务维护设置" width="380"/></td></tr>
+</table>
+
+<details><summary>0.1.4 使用前风险确认提示</summary>
+
+![使用前请先测试并备份](docs/screenshots/usage-notice.png)
+
+</details>
 
 ## Windows 使用
 

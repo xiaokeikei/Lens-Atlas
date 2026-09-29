@@ -25,7 +25,7 @@ SOURCE_FILES = ['Dockerfile', 'compose.yaml', 'compose.registry.yaml', '.dockeri
 
 def source_files():
     files = [ROOT / name for name in SOURCE_FILES]
-    for folder in ['backend', 'frontend/src', 'frontend/public']:
+    for folder in ['backend', 'frontend/src', 'frontend/public', 'docs/screenshots']:
         files.extend(path for path in (ROOT / folder).rglob('*')
                      if path.is_file() and '__pycache__' not in path.parts and path.suffix != '.pyc')
     return sorted(set(path for path in files if path.is_file()))
@@ -94,8 +94,10 @@ def main():
         with zipfile.ZipFile(offline, 'w', compression=zipfile.ZIP_DEFLATED) as bundle:
             bundle.writestr('LensAtlas/compose.yaml', compose)
             bundle.write(args.image_archive, 'LensAtlas/lens-atlas-image.tar.gz', compress_type=zipfile.ZIP_STORED)
-            for name in ['.env.example', 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'VALIDATION.md', 'DOCKER_RELEASES.md', 'CHANGELOG.md']:
+            for name in ['.env.example', 'README.md', 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'VALIDATION.md', 'DOCKER_RELEASES.md', 'CHANGELOG.md']:
                 bundle.write(ROOT / name, 'LensAtlas/' + name)
+            for screenshot in (ROOT / 'docs' / 'screenshots').glob('*.png'):
+                bundle.write(screenshot, 'LensAtlas/docs/screenshots/' + screenshot.name)
             bundle.write(ROOT / 'scripts/reset_admin.py', 'LensAtlas/scripts/reset_admin.py')
             bundle.writestr('LensAtlas/image-manifest.json', json.dumps(evidence, indent=2) + '\n')
             bundle.writestr('LensAtlas/lens-atlas-image.tar.gz.sha256', checksum(args.image_archive) + '  lens-atlas-image.tar.gz\n')
