@@ -95,8 +95,9 @@ class Scanner:
             if not path.is_dir():
                 raise FileNotFoundError("目录离线或不存在；原索引已保留")
             self.db.execute("UPDATE roots SET status='scanning',error=NULL WHERE id=?", (rid,))
+            skipped = []
             if not job["enumeration_complete"]:
-                self.enumerate(job, path)
+                skipped = self.enumerate(job, path)
             for phase, column in (("metadata", "metadata_status"), ("preview", "preview_status")):
                 self.check(jid)
                 total = self.db.one(f"SELECT COUNT(*) n FROM assets WHERE root_id=? AND deleted=0 AND kind IN ('photo','video') AND {column}='pending'", (rid,))["n"]
@@ -115,8 +116,10 @@ class Scanner:
                             self.db.execute("UPDATE jobs SET processed=?,errors=errors+?,updated=? WHERE id=?", (done, int(failed), now(), jid))
             self.check(jid)
             self.trim_cache()
-            self.db.execute("UPDATE jobs SET status='completed',phase='complete',message='扫描完成',updated=? WHERE id=?", (now(), jid))
-            self.db.execute("UPDATE roots SET status='online',last_scan=?,error=NULL WHERE id=?", (now(), rid))
+            message = self.permission_warning(skipped) if skipped else "扫描完成"
+            warning = message if skipped else None
+            self.db.execute("UPDATE jobs SET status='completed',phase='complete',message=?,updated=? WHERE id=?", (message, now(), jid))
+            self.db.execute("UPDATE roots SET status='online',last_scan=?,error=? WHERE id=?", (now(), warning, rid))
         except ScanStopped:
             self.db.execute("UPDATE roots SET status='interrupted' WHERE id=?", (rid,))
         except Exception as e:
@@ -129,8 +132,18 @@ class Scanner:
         initial = root.stat()
         old_count = self.db.one("SELECT COUNT(*) n FROM assets WHERE root_id=? AND deleted=0", (rid,))["n"]
         count = 0
+        skipped = []
         self.db.execute("UPDATE jobs SET phase='enumerate',enumerated=0,updated=? WHERE id=?", (now(), jid))
+
+        # A readable directory needs both read and traversal access. Checking the
+        # root separately prevents an inaccessible library looking like an empty scan.
+        with os.scandir(root):
+            pass
+
         def onerror(error):
+            if isinstance(error, PermissionError):
+                skipped.append(str(error.filename or root))
+                return
             raise error
         for directory, dirs, files in os.walk(root, followlinks=False, onerror=onerror):
             self.check(jid)
@@ -169,7 +182,14 @@ class Scanner:
             raise OSError("目录身份改变或已有图库突然为空；不标记删除，请检查挂载")
         # Conservative first-release behavior: absence is a candidate, never automatic deletion.
         # Read access reports source_missing separately. Explicit root removal is the only purge.
-        self.db.execute("UPDATE jobs SET enumeration_complete=1,enumerated=?,updated=? WHERE id=?", (count,now(),jid))
+        self.db.execute("UPDATE jobs SET enumeration_complete=1,enumerated=?,errors=errors+?,updated=? WHERE id=?", (count,len(skipped),now(),jid))
+        return skipped
+
+    @staticmethod
+    def permission_warning(paths):
+        shown = [Path(path).as_posix() for path in paths[:3]]
+        suffix = f"；另有 {len(paths) - len(shown)} 个" if len(paths) > len(shown) else ""
+        return f"扫描完成，但跳过 {len(paths)} 个无权限目录：{'；'.join(shown)}{suffix}。历史索引已保留"
 
     def source_path(self, item):
         root = Path(item["root_path"]).resolve()

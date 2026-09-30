@@ -92,6 +92,31 @@ def test_offline_or_incomplete_scan_never_removes_index(env,monkeypatch):
     assert c.post('/api/stats',json={}).json()['summary']['count']==1
 
 
+def test_unreadable_subdirectory_is_skipped_and_reported(env,monkeypatch):
+    app,c,tmp=env
+    root=tmp/'partial';blocked=root/'blocked'
+    make_jpeg(root/'visible.jpg');make_jpeg(blocked/'historical.jpg')
+    r,_=add_scan(app,c,root)
+    original_walk=os.walk
+
+    def partial_walk(top, followlinks=False, onerror=None):
+        if Path(top) != root:
+            yield from original_walk(top, followlinks=followlinks, onerror=onerror)
+            return
+        yield str(root), [], ['visible.jpg']
+        onerror(PermissionError(13, 'Permission denied', str(blocked)))
+
+    monkeypatch.setattr('backend.scanner.os.walk',partial_walk)
+    _,job=add_scan(app,c,root)
+    assert job['status']=='completed'
+    assert job['errors']==1
+    assert '跳过 1 个无权限目录' in job['message']
+    saved=app.state.db.one('SELECT * FROM roots WHERE id=?',(r['id'],))
+    assert saved['status']=='online'
+    assert '历史索引已保留' in saved['error']
+    assert c.post('/api/stats',json={}).json()['summary']['count']==2
+
+
 def test_timeout_and_bad_file_dont_block_valid_statistics(env,monkeypatch):
     app,c,tmp=env;root=tmp/'failures';make_jpeg(root/'good.jpg');(root/'bad.cr3').write_bytes(b'invalid synthetic raw')
     original=app.state.scanner.worker
