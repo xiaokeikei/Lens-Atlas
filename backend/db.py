@@ -26,6 +26,8 @@ CREATE INDEX IF NOT EXISTS idx_assets_lens ON assets(lens);
 CREATE INDEX IF NOT EXISTS idx_assets_equiv ON assets(focal_equiv);
 CREATE INDEX IF NOT EXISTS idx_assets_native ON assets(focal_native);
 CREATE INDEX IF NOT EXISTS idx_assets_time ON assets(taken_at);
+CREATE INDEX IF NOT EXISTS idx_assets_statistics ON assets(
+ deleted,kind,camera,lens,focal_equiv,focal_native,taken_at,size,root_id,metadata_status,preview_status);
 CREATE TABLE IF NOT EXISTS jobs(
  id TEXT PRIMARY KEY, root_id INTEGER NOT NULL REFERENCES roots(id), status TEXT NOT NULL,
  phase TEXT NOT NULL DEFAULT 'enumerate', enumerated INTEGER NOT NULL DEFAULT 0,

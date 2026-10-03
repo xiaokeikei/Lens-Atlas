@@ -51,6 +51,17 @@ test('real add → scan → charts → filter → random preview → detail → 
   await page.getByRole('button',{name:'原生焦距',exact:true}).click();
   await expect(page.locator('.soft-label').filter({hasText:'真实索引'})).toContainText('原生');
   await page.getByRole('button',{name:'重置',exact:true}).click();
+  const filtered=page.waitForResponse(r=>r.url().endsWith('/api/stats')&&r.request().postDataJSON()?.focal_bins?.length===1);
+  await page.locator('.focal-bins button:not([disabled])').first().click();
+  const focalResult=await (await filtered).json();
+  expect(focalResult.focals.length).toBeGreaterThan(0);
+  await expect(page.locator('.focal-bins button.active')).toHaveCount(1);
+  const binTotal=focalResult.focals.reduce((sum:number,b:any)=>sum+b.count,0);
+  await expect.poll(async()=>Number((await page.locator('.count-pill').innerText()).replaceAll(',',''))).toBe(binTotal);
+  await expect(page.locator('.metrics').first()).toContainText(binTotal.toLocaleString('zh-CN'));
+  await page.locator('.focal-bins button.active').click();
+  await expect(page.locator('.focal-bins button.active')).toHaveCount(0);
+  await expect.poll(async()=>Number((await page.locator('.count-pill').innerText()).replaceAll(',',''))).toBe(total);
   await page.getByRole('button',{name:'顺序浏览',exact:true}).click();
   await page.getByRole('button',{name:'下一页',exact:true}).click();
   await expect(page.locator('.pagination')).toContainText('2 / 2');
@@ -124,4 +135,25 @@ test('NAS login, background scanning and independent browser filters',async({pag
   const saved=await (await request.get('/api/connections',{headers:localHeaders})).json();
   expect(saved.some((c:any)=>c.name==='浏览器测试 NAS')).toBeTruthy();
   await desktopPage.close();
+});
+
+test('linked chart selection and cancellation refresh every population',async({page,request})=>{
+  await page.addInitScript(()=>{(window as any).__LENS_TOKEN__='synthetic-e2e-local-session';});
+  await page.goto('/');
+  await acceptUsageNotice(page);
+  await expect(page.locator('.focal-bins button:not([disabled])').first()).toBeVisible();
+  await expect.poll(async()=>Number((await page.locator('.count-pill').innerText()).replaceAll(',',''))).toBeGreaterThan(0);
+  const total=Number((await page.locator('.count-pill').innerText()).replaceAll(',',''));
+  const extraRequests:string[]=[];page.on('request',r=>{if(r.url().endsWith('/api/stats/focals'))extraRequests.push(r.url());});
+  const response=page.waitForResponse(r=>r.url().endsWith('/api/stats')&&r.request().postDataJSON()?.focal_bins?.length===1);
+  await page.locator('.focal-bins button:not([disabled])').first().click();
+  const data=await (await response).json();
+  expect(data.focals.length).toBeGreaterThan(0);
+  const count=data.focals.reduce((sum:number,b:any)=>sum+b.count,0);
+  await expect.poll(async()=>Number((await page.locator('.count-pill').innerText()).replaceAll(',',''))).toBe(count);
+  await expect(page.locator('.focal-bins button.active')).toHaveCount(1);
+  await page.locator('.focal-bins button.active').click();
+  await expect(page.locator('.focal-bins button.active')).toHaveCount(0);
+  await expect.poll(async()=>Number((await page.locator('.count-pill').innerText()).replaceAll(',',''))).toBe(total);
+  expect(extraRequests).toEqual([]);
 });

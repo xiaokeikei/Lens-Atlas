@@ -9,7 +9,7 @@
 `LensAtlas-版本-docker-online.zip` 包含应用源码和构建配置，不附带 node_modules、Python 虚拟环境或镜像层。
 首次构建需要网络下载官方基础镜像、系统工具和软件依赖，完成后可离线运行。
 
-1. 解压，复制 `.env.example` 为 `.env`，填写现有的素材路径、独立应用数据路径、局域网地址及实际 UID/GID。
+1. 解压，复制 `.env.example` 为 `.env`，填写现有的素材路径、独立应用数据路径、实际 UID/GID；绑定地址保留默认 `0.0.0.0`，无需填写 NAS 的固定 IP。
 2. 在包含 compose.yaml 的目录运行：
 
 ```sh
@@ -62,9 +62,9 @@ docker compose ps
 ## 维护者生成交付包
 
 ```sh
-docker build -t lens-atlas:0.1.6 .
-docker image save lens-atlas:0.1.6 | gzip > lens-atlas-0.1.6-image.tar.gz
-python scripts/package_docker_release.py --image-archive lens-atlas-0.1.6-image.tar.gz
+docker build -t lens-atlas:0.1.8 .
+docker image save lens-atlas:0.1.8 | gzip > lens-atlas-0.1.8-image.tar.gz
+python scripts/package_docker_release.py --image-archive lens-atlas-0.1.8-image.tar.gz
 ```
 
 脚本仅收集白名单源码，生成在线和离线 ZIP、SHA-256 校验值；检查镜像版本、平台、默认端口及镜像层中是否混入个人应用数据。

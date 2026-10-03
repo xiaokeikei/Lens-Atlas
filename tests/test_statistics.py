@@ -79,3 +79,20 @@ def test_raw_plus_jpeg_remain_separate(env):
     app,c,_=env;rid=seed(app.state.db)
     app.state.db.execute("INSERT INTO assets(root_id,relpath,size,mtime_ns,kind,ext) VALUES(?,'a.cr3',100,1,'photo','cr3')",(rid,))
     assert c.post('/api/stats',json={}).json()['summary']['count']==6
+
+@pytest.mark.parametrize('filters', [
+    {'cameras':['Camera A']}, {'lenses':['Lens B']},
+    {'focal_bins':[1]}, {'focals':[50]}, {'months':['2024-01']},
+    {'focal_bins':[1], 'cameras':['Camera B']},
+])
+def test_all_charts_and_assets_share_selected_population(env, filters):
+    app, client, _ = env
+    seed(app.state.db)
+    stats = client.post('/api/stats', json=filters).json()
+    focals = client.post('/api/stats/focals', json=filters).json()
+    assets = client.post('/api/assets/query', json={'filters':filters}).json()
+    assert stats['summary']['count'] == assets['total']
+    assert focals['values'] == stats['focals']
+    assert sum(row['count'] for row in focals['bins']) == sum(row['count'] for row in stats['focals'])
+    for field, column in [('cameras','camera'), ('lenses','lens')]:
+        assert sum(row['count'] for row in stats[field]) == sum(item[column] is not None for item in assets['items'])

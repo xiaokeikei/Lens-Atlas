@@ -8,9 +8,9 @@
 >
 > Windows 安装版、免安装版与 Docker 部署仅在首次使用时显示风险提示，勾选确认后记录保存在各自的应用数据中。刷新、重新打开、退出登录、重启或保留数据升级后不再弹出；清空应用数据或使用新的数据目录后需重新确认。NAS 先登录管理员再确认，同一部署无需每个浏览器重复确认。旧版未保存确认记录，升级后需确认一次。此提示不暂停服务端已经运行的任务；添加素材目录时保留行内测试与备份建议。
 
-当前版本 **0.1.6**。扫描遇到个别无权限子目录时会记录警告并继续，历史索引仍保留；保留首次使用风险确认、焦距分层浏览、只读图库比对和 Windows 保持登录。更新记录见 CHANGELOG.md。NAS 默认端口为 52032。Docker 镜像内置运行依赖，安装步骤见 DOCKER_RELEASES.md，实际验证见 VALIDATION.md。
+当前版本 **0.1.8**。新增所有图表联动筛选与再次点击取消，优化 NAS 统计查询与客户端远程连接复用；保留扫描异常隔离、首次使用确认、只读图库比对和 Windows 保持登录。更新记录见 CHANGELOG.md。NAS 默认端口为 52032。Docker 镜像内置运行依赖，安装步骤见 DOCKER_RELEASES.md，实际验证见 VALIDATION.md。
 
-公开源码仓库：[xiaokeikei/Lens-Atlas](https://github.com/xiaokeikei/Lens-Atlas)。安装包见 [v0.1.6 Release](https://github.com/xiaokeikei/Lens-Atlas/releases/tag/v0.1.6)，包含 Windows 安装版、免安装版、Docker 在线与离线包及 SHA-256 校验值。旧版本不会自动更新，请下载新版并保留原应用数据目录。
+公开源码仓库：[xiaokeikei/Lens-Atlas](https://github.com/xiaokeikei/Lens-Atlas)。安装包见 [v0.1.8 Release](https://github.com/xiaokeikei/Lens-Atlas/releases/tag/v0.1.8)，包含 Windows 安装版、免安装版、Docker 在线与离线包及 SHA-256 校验值。旧版本不会自动更新，请下载新版并保留原应用数据目录。
 
 只读分析照片与视频：本机独立图库、Windows 客户端连接 NAS、NAS Docker 服务共用 React 界面和 FastAPI / SQLite 后台。
 
@@ -21,13 +21,13 @@
 
 | 使用方式 | Release 附件 |
 | --- | --- |
-| Windows 安装版 | `LensAtlas-0.1.6-Setup-x64.exe` |
-| Windows 免安装版 | `LensAtlas-0.1.6-windows-x64.zip` |
-| NAS 联网构建 | `LensAtlas-0.1.6-docker-online.zip` |
-| NAS 离线导入（linux/amd64） | `LensAtlas-0.1.6-docker-offline-amd64.zip` |
+| Windows 安装版 | `LensAtlas-0.1.8-Setup-x64.exe` |
+| Windows 免安装版 | `LensAtlas-0.1.8-windows-x64.zip` |
+| NAS 联网构建 | `LensAtlas-0.1.8-docker-online.zip` |
+| NAS 离线导入（linux/amd64） | `LensAtlas-0.1.8-docker-offline-amd64.zip` |
 | 完整性校验 | `SHA256SUMS.txt` |
 
-以下 6 张截图由项目作者提供，展示 0.1.3 的实际界面；0.1.6 保留这些功能，并包含下方的风险确认提示。截图中的图库数量、设备名称和素材仅为展示，不代表安装后的默认内容。
+以下 6 张截图由项目作者提供，展示 0.1.3 的实际界面；0.1.8 保留这些功能，并包含下方的风险确认提示。截图中的图库数量、设备名称和素材仅为展示，不代表安装后的默认内容。
 
 <table>
 <tr><td align="center"><b>图库信息主页</b><br/><img src="docs/screenshots/overview.png" alt="图库信息主页与相机、镜头统计" width="380"/></td><td align="center"><b>随机图片展示</b><br/><img src="docs/screenshots/gallery.png" alt="随机图片展示与素材浏览" width="380"/></td></tr>
@@ -35,7 +35,7 @@
 <tr><td align="center"><b>远程登录</b><br/><img src="docs/screenshots/nas-login.png" alt="NAS 登录界面" width="380"/></td><td align="center"><b>设置与维护</b><br/><img src="docs/screenshots/settings.png" alt="缓存容量和服务维护设置" width="380"/></td></tr>
 </table>
 
-<details><summary>0.1.6 使用前风险确认提示</summary>
+<details><summary>0.1.8 使用前风险确认提示</summary>
 
 ![使用前请先测试并备份](docs/screenshots/usage-notice.png)
 
@@ -81,7 +81,7 @@
 ```dotenv
 LENS_MEDIA_PATH=/your/existing/photos
 LENS_APP_PATH=/your/existing/lens-atlas-data
-LENS_BIND_IP=192.168.1.10
+LENS_BIND_IP=0.0.0.0
 LENS_PORT=52032
 LENS_UID=1000
 LENS_GID=1000
@@ -96,7 +96,7 @@ sudo setfacl -R -m u:1000:rX /your/existing/photos
 ```
 
 也可以让 `LENS_UID/LENS_GID` 与原片所有者一致。不建议为了扫描而将容器改为 root，也不建议对整个图库开放写权限。
-默认绑定 `127.0.0.1`，若其他设备需要连接，应改为 NAS 的实际 LAN IP。不要配置路由器端口转发或公开到互联网。
+默认绑定 `0.0.0.0`，监听宿主机所有 IPv4 地址；NAS 更换局域网 IP 后无需修改容器配置，使用新地址访问即可。仅需本机访问时可改为 `127.0.0.1`。不要配置路由器端口转发或公开到互联网。
 
 ```sh
 docker compose config

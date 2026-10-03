@@ -49,9 +49,8 @@ FOCAL_BOUNDS = [20, 40, 80, 100, 120, 150, 200, 300, 400, 600, 1000, None]
 
 
 def focal_distribution(db, filters):
-    # Faceted context: retain every other filter, but remove the focal selection.
-    context = filters.model_copy(update={'focals': [], 'focal_bins': []})
-    where, args, focal = clause(context)
+    # All charts describe the same filtered population.
+    where, args, focal = clause(filters)
     rows = db.rows(f'SELECT {focal} value,COUNT(*) count,COALESCE(SUM(size),0) bytes '
                    f'FROM assets WHERE {where} AND {focal}>0 GROUP BY {focal} ORDER BY {focal}', args)
     bins = []
@@ -82,10 +81,15 @@ def _statistics(db, filters):
     result = {"mode":filters.mode}
     for name, expr in [("cameras","camera"),("lenses","lens"),("focals",focal),("months","substr(taken_at,1,7)")]:
         result[name] = db.rows(f"SELECT {expr} value,COUNT(*) count,COALESCE(SUM(size),0) bytes FROM assets WHERE {where} AND {expr} IS NOT NULL GROUP BY {expr} ORDER BY " + ("value" if name in {"focals","months"} else "count DESC,value"), args)
-    result["summary"] = db.one(f"SELECT COUNT(*) count,COALESCE(SUM(size),0) bytes,SUM(kind='photo') photos,SUM(kind='video') videos FROM assets WHERE {where}",args)
     missing = [("camera", "camera IS NULL"),("lens","lens IS NULL"),("focal",focal+" IS NULL"),("time","taken_at IS NULL")]
     missing.append(("any", "(" + " OR ".join(exp for _,exp in missing) + ")"))
-    result["missing"] = {name: db.one(f"SELECT COUNT(*) count,COALESCE(SUM(size),0) bytes FROM assets WHERE {where} AND {expr}",args) for name,expr in missing}
+    aggregates = ["COUNT(*) count", "COALESCE(SUM(size),0) bytes", "SUM(kind='photo') photos", "SUM(kind='video') videos"]
+    for name, expr in missing:
+        aggregates.extend([f"COUNT(CASE WHEN {expr} THEN 1 END) {name}_count",
+                           f"COALESCE(SUM(CASE WHEN {expr} THEN size ELSE 0 END),0) {name}_bytes"])
+    totals = db.one(f"SELECT {','.join(aggregates)} FROM assets WHERE {where}", args)
+    result["summary"] = {key:totals[key] for key in ('count','bytes','photos','videos')}
+    result["missing"] = {name:{'count':totals[name+'_count'],'bytes':totals[name+'_bytes']} for name,_ in missing}
     result["states"] = db.rows(f"SELECT metadata_status,preview_status,COUNT(*) count FROM assets WHERE {where} GROUP BY metadata_status,preview_status",args)
     result["inventory"] = db.rows("SELECT kind,COUNT(*) count,COALESCE(SUM(size),0) bytes FROM assets WHERE deleted=0 GROUP BY kind")
     return result

@@ -7,8 +7,8 @@ services:
     restart: unless-stopped
     user: "${LENS_UID:-1000}:${LENS_GID:-1000}"
     ports:
-      # Default stays private to the NAS host. Set LENS_BIND_IP to the NAS LAN IP for client access.
-      - "${LENS_BIND_IP:-127.0.0.1}:${LENS_PORT:-52032}:52032"
+      # Listen on all host interfaces so NAS IP changes do not prevent startup.
+      - "${LENS_BIND_IP:-0.0.0.0}:${LENS_PORT:-52032}:52032"
     environment:
       LENS_DATA_DIR: /data
       LENS_MEDIA_ROOTS: /media

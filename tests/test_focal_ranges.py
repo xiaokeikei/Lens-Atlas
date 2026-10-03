@@ -8,7 +8,7 @@ def seed(app):
                              (rid,str(focal),focal,50,'Camera'))
 
 
-def test_decimal_boundaries_no_gaps_zero_excluded_and_context_retained(env):
+def test_decimal_boundaries_no_gaps_zero_excluded_and_selection_applied(env):
     app,c,_=env;seed(app)
     data=c.post('/api/stats/focals',json={}).json()
     assert len(data['bins'])==12
@@ -18,7 +18,8 @@ def test_decimal_boundaries_no_gaps_zero_excluded_and_context_retained(env):
         values=c.post('/api/assets/query',json={'filters':{'focal_bins':[index]}}).json()
         assert values['total']==count
     selected=c.post('/api/stats/focals',json={'focal_bins':[4]}).json()
-    assert selected==data
+    assert sum(b["count"] for b in selected["bins"])==3
+    assert [r["value"] for r in selected["values"]]==[100.5,110,120]
     assert c.post('/api/stats/focals',json={'cameras':['different']}).json()['values']==[]
     assert c.post('/api/assets/query',json={'filters':{'focal_bins':[11,0]}}).json()['total']==5
     assert c.post('/api/assets/query',json={'filters':{'focal_bins':[12]}}).status_code==422

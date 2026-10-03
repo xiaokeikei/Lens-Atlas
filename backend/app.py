@@ -90,12 +90,18 @@ def create_app(config=None, start_scanner=True):
 
     @asynccontextmanager
     async def lifespan(app):
+        app.state.remote_client = httpx.AsyncClient(timeout=httpx.Timeout(60,connect=8),
+            limits=httpx.Limits(max_connections=64,max_keepalive_connections=32,keepalive_expiry=30),
+            follow_redirects=False,trust_env=False)
         if start_scanner:
             scanner.start()
             comparisons.start()
-        yield
-        comparisons.close()
-        scanner.close()
+        try:
+            yield
+        finally:
+            comparisons.close()
+            scanner.close()
+            await app.state.remote_client.aclose()
 
     app = FastAPI(title="Lens Atlas", version=__version__, lifespan=lifespan, docs_url=None, redoc_url=None)
     app.state.db, app.state.scanner, app.state.config = db, scanner, config
@@ -508,23 +514,20 @@ def create_app(config=None, start_scanner=True):
                 db.set_setting('last_connection', None)
         if request.headers.get("range"):
             headers["range"] = request.headers["range"]
-        client = httpx.AsyncClient(timeout=httpx.Timeout(60,connect=8),follow_redirects=False,trust_env=False)
+        client = app.state.remote_client
         try:
             params=[(k,v) for k,v in request.query_params.multi_items() if k not in {'local_expires','local_sig'}]
             body=b'' if request.method in {'GET','HEAD'} else await request.body()
             req = client.build_request(request.method,connection["url"]+"/"+path,params=params,headers=headers,content=body)
             response = await client.send(req,stream=True)
         except ClientDisconnect:
-            await client.aclose()
             return Response(status_code=499)
         except httpx.HTTPError:
-            await client.aclose()
             raise HTTPException(502,"NAS 无法连接，请检查地址、网络及证书")
         if path == "api/auth/login" and response.status_code == 200:
             data = json.loads(await response.aread())
             remote_sessions[cid] = data["token"]
             await response.aclose()
-            await client.aclose()
             remember = config.desktop and json.loads(body).get('remember', False)
             if remember:
                 try:
@@ -547,7 +550,6 @@ def create_app(config=None, start_scanner=True):
                     yield chunk
             finally:
                 await response.aclose()
-                await client.aclose()
         allowed = {k:v for k,v in response.headers.items() if k in {"content-type","content-length","content-range","accept-ranges"}}
         return StreamingResponse(content(),status_code=response.status_code,headers=allowed)
 
