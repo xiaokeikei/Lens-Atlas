@@ -14,6 +14,7 @@ def main():
     parser=argparse.ArgumentParser()
     parser.add_argument('--exe',default=str(ROOT/'dist'/'LensAtlas'/'LensAtlas.exe'))
     parser.add_argument('--tag',default='packaged')
+    parser.add_argument('--mobile-share',action='store_true')
     args=parser.parse_args()
     output=ROOT/'.runtime'/f'{args.tag}-verification.json'
     output.unlink(missing_ok=True)
@@ -21,11 +22,19 @@ def main():
     env['PATH']=str(Path(os.environ['SystemRoot'])/'System32')+os.pathsep+os.environ['SystemRoot']
     env.pop('PYTHONHOME',None);env.pop('PYTHONPATH',None)
     start=time.monotonic()
-    p=subprocess.run([args.exe,'--smoke-test','--data-dir',str(ROOT/'.runtime'/f'{args.tag}-verification-data'),'--smoke-fixture',str(ROOT/'.runtime'/'合成 测试图库'),'--smoke-output',str(output)],env=env,cwd=ROOT,timeout=210)
+    fixture=ROOT/'.runtime'/'合成 测试图库'
+    original={str(p.relative_to(fixture)):hashlib.sha256(p.read_bytes()).hexdigest() for p in fixture.rglob('*') if p.is_file()}
+    command=[args.exe,'--smoke-test','--data-dir',str(ROOT/'.runtime'/f'{args.tag}-verification-data'),'--smoke-fixture',str(fixture),'--smoke-output',str(output)]
+    if args.mobile_share:command.append('--smoke-mobile-share')
+    p=subprocess.run(command,env=env,cwd=ROOT,timeout=210)
     if p.returncode or not output.exists():
         raise SystemExit(f'Bundled application failed verification (exit {p.returncode}, no report: {not output.exists()})')
     report=json.loads(output.read_text(encoding='utf-8'))
     assert report['window'] is True
+    if args.mobile_share:
+        assert report['mobile_share']['same_index'] and report['mobile_share']['scan_start_cancel'] and report['mobile_share']['thumbnail'] and report['mobile_share']['directory_management_denied']
+        assert report['mobile_share']['menu']=='手机访问'
+    assert original=={str(p.relative_to(fixture)):hashlib.sha256(p.read_bytes()).hexdigest() for p in fixture.rglob('*') if p.is_file()}, 'Original synthetic source files changed'
     assert '已连接' in report['page']['text']
     assert report['page']['charts']==4
     assert report['stats']['summary']['count']>=31

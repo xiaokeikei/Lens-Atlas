@@ -78,7 +78,7 @@ test('NAS login, background scanning and independent browser filters',async({pag
   const base='http://127.0.0.1:18766';
   const health=await (await request.get(base+'/api/health')).json();
   if(health.setup_required){
-    const code=fs.readFileSync(path.resolve('..','.runtime','browser-nas-data','setup-code.txt'),'utf8').trim();
+    const code=fs.readFileSync(path.resolve(process.env.LENS_E2E_DATA_DIR||path.resolve('..','.runtime'),'browser-nas-data','setup-code.txt'),'utf8').trim();
     expect((await request.post(base+'/api/auth/setup',{data:{password:'synthetic-nas-password',setup_code:code}})).ok()).toBeTruthy();
   }
   await page.addInitScript(()=>{(window as any).__LENS_TOKEN__='synthetic-e2e-local-session';});

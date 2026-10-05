@@ -23,4 +23,9 @@ frontend-prebuilt/
 *.exe
 *.dll
 *.tsbuildinfo
-
+android/.gradle/
+android/local.properties
+android/**/build/
+android/app/src/main/assets/
+frontend/dist-mobile/
+*.apk

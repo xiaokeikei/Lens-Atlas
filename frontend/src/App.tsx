@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import * as echarts from 'echarts';
+import { Chart, Metric } from './LibraryWidgets';
 import FocalChart, { focalDistribution, focalLabels, type FocalData } from './FocalChart';
 import Comparison from './Comparison';
 import UsageNotice from './UsageNotice';
@@ -24,26 +24,6 @@ async function request<T=any>(url:string, token:string, body?:unknown, method?:s
   const response = await fetch(url,{signal,method:method || (body !== undefined?'POST':'GET'),headers:{...(token?{Authorization:`Bearer ${token}`} : {}),...(body!==undefined?{'Content-Type':'application/json'}:{})},body:body!==undefined?JSON.stringify(body):undefined});
   if (!response.ok) { let detail; try { detail=(await response.json()).detail; } catch { detail=response.statusText; } throw Object.assign(new Error(typeof detail==='string'?detail:JSON.stringify(detail)),{status:response.status}); }
   return response.json();
-}
-
-function Chart({title,subtitle,rows,selected,onSelect,type='bar',suffix=''}:{title:string;subtitle:string;rows:Group[];selected:(string|number)[];onSelect:(value:any)=>void;type?:'bar'|'line'|'column';suffix?:string}) {
-  const element = useRef<HTMLDivElement>(null);
-  const choose = useRef(onSelect); choose.current=onSelect;
-  useEffect(()=>{
-    if(!element.current || !rows.length) return;
-    const chart=echarts.init(element.current,undefined,{renderer:'canvas'});
-    const horizontal=type==='bar';
-    const labels=rows.map(r=>String(r.value)+suffix);
-    chart.setOption({animationDuration:280,grid:{left:horizontal?130:44,right:25,top:16,bottom:horizontal?24:46},tooltip:{trigger:'axis',confine:true,renderMode:'richText',axisPointer:{type:'shadow'}},
-      xAxis:horizontal?{type:'value',min:0,minInterval:1,splitLine:{lineStyle:{color:'#eef0ed'}},axisLabel:{color:'#89938f',fontSize:10}}:{type:'category',data:labels,axisTick:{show:false},axisLine:{lineStyle:{color:'#e3e8e4'}},axisLabel:{color:'#718078',fontSize:10,rotate:rows.length>10?35:0}},
-      yAxis:horizontal?{type:'category',data:labels,inverse:true,axisTick:{show:false},axisLine:{show:false},axisLabel:{color:'#46564d',fontSize:11,width:112,overflow:'truncate'}}:{type:'value',min:0,minInterval:1,splitLine:{lineStyle:{color:'#eef0ed'}},axisLabel:{color:'#89938f',fontSize:10}},
-      dataZoom:rows.length>12?[{type:'slider',...(horizontal?{yAxisIndex:0}:{xAxisIndex:0}),start:0,end:Math.min(100,12/rows.length*100),width:horizontal?8:undefined,height:horizontal?undefined:12,showDetail:false,borderColor:'transparent'}]:[],
-      series:[{type:type==='line'?'line':'bar',barMaxWidth:20,smooth:false,symbolSize:7,lineStyle:{color:'#257b64',width:2},areaStyle:type==='line'?{color:'#e0eee7'}:undefined,label:{show:horizontal,position:'right',color:'#627369',fontSize:11},data:rows.map(r=>({value:r.count,itemStyle:{color:selected.includes(r.value)?'#d79e51':'#36846c',borderRadius:horizontal?[0,4,4,0]:[4,4,0,0]}}))}]});
-    chart.on('click',(event:any)=>{const row=rows[event.dataIndex];if(event.componentType==='series'&&row)choose.current(row.value);});
-    const observer=new ResizeObserver(()=>chart.resize()); observer.observe(element.current);
-    return ()=>{observer.disconnect();chart.dispose();};
-  },[rows,selected,type,suffix]);
-  return <section className="card chart-card"><div className="card-title"><div><h3>{title}</h3><p>{subtitle}</p></div><span className="soft-label">{rows.length} 类</span></div>{rows.length?<><div className="chart" ref={element} role="img" aria-label={`${title}统计图，点击分类可筛选`}/><div className="chart-options">{rows.map(r=><button className={selected.includes(r.value)?'active':''} key={r.value} onClick={()=>onSelect(r.value)} title={`${r.value}${suffix} · ${num(r.count)} 个文件`}>{String(r.value)}{suffix}<small>{num(r.count)}</small></button>)}</div></>:<div className="empty-chart">暂无可统计的{title}记录</div>}</section>;
 }
 
 function Photo({item,url,token,onClick}:{item:Asset;url:(path:string)=>string;token:string;onClick:()=>void}) {
@@ -142,5 +122,3 @@ export default function App(){
     {detail&&<div className="modal-backdrop detail-backdrop" onClick={()=>setDetail(null)}><section className="detail-modal" role="dialog" aria-modal="true" aria-label="素材详情" onClick={e=>e.stopPropagation()}><div className="detail-preview">{detail.kind==='video'&&videoUrl&&!inlineUnsupported?<video controls preload="metadata" poster={detailImage} src={videoUrl} onLoadedData={event=>{if(event.currentTarget.videoWidth===0){setInlineUnsupported(true);setVideoError('当前内嵌播放器只读到音轨，不能显示视频画面。请使用原生播放器。');}}} onError={()=>{setInlineUnsupported(true);setVideoError('当前内嵌播放器无法解码或原片不可用；未自动转码。');}}/>:detailImage?<img src={detailImage} alt={detail.relpath}/>:<div className="photo-unavailable"><ImageIcon size={48}/><p>此素材暂无可用预览</p></div>}{videoError&&<p className="preview-message">{videoError}</p>}{detail.kind==='video'&&nativePlayback&&<button className="primary native-play-button" disabled={!videoUrl} onClick={()=>{local('/api/player/open',{url:videoUrl,title:detail.relpath.split('/').pop()}).catch(e=>setVideoError(e.message));}}><Play size={17}/>在桌面播放器中打开</button>}</div><div className="detail-info"><div className="modal-header"><span className="eyebrow">ASSET DETAILS</span><button className="icon-button" aria-label="关闭素材详情" onClick={()=>setDetail(null)}><X/></button></div><h2>{detail.relpath.split('/').pop()}</h2><p className="filepath">{detail.root_label} / {detail.relpath}</p><div className="detail-tags"><span>{detail.ext.toUpperCase()}</span><span>{bytes(detail.size)}</span><span>{detail.width&&detail.height?`${detail.width} × ${detail.height}`:'尺寸未知'}</span></div><dl>{[['相机',detail.camera],['镜头',detail.lens],[filters.mode==='equivalent'?'35mm 等效焦距':'原生焦距',(filters.mode==='equivalent'?detail.focal_equiv:detail.focal_native)?`${filters.mode==='equivalent'?detail.focal_equiv:detail.focal_native} mm`:null],['等效焦距来源',detail.focal_source],['原生焦距',detail.focal_native?`${detail.focal_native} mm`:null],['拍摄时间',detail.taken_at],['时间来源',detail.time_source],['光圈',detail.aperture?`f/${detail.aperture}`:null],['曝光时间',detail.shutter?`${detail.shutter} s`:null],['ISO',detail.iso],['视频编码',detail.codec],['时长',detail.duration?`${detail.duration.toFixed(2)} 秒`:null]].map(([k,v])=><div key={k}><dt>{k}</dt><dd className={!v?'muted':''}>{v || '缺失 / 未记录'}</dd></div>)}</dl><div className="detail-status"><p>元数据：{statusNames[detail.metadata_status]}</p><p>预览：{statusNames[detail.preview_status]}</p><p>文件：{statusNames[detail.availability||'unknown']}</p>{detail.kind==='video'&&<p>播放：{statusNames[detail.playback_status]}</p>}{(detail.metadata_error||detail.preview_error)&&<p className="helper">{detail.metadata_error}<br/>{detail.preview_error}</p>}</div><details><summary>查看原始元数据及字段来源</summary><pre>{JSON.stringify(detail.metadata,null,2)}</pre></details></div></section></div>}
   </div>;
 }
-
-function Metric({icon:Icon,label,value,hint}:{icon:typeof Camera;label:string;value:string;hint:string}){return <section className="card metric"><div><span>{label}</span><Icon size={19}/></div><strong>{value}</strong><p>{hint}</p></section>;}

@@ -65,6 +65,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--release-dir', type=Path, default=ROOT.parent / 'release')
     parser.add_argument('--install-base', type=Path, default=ROOT / '.runtime' / 'custom-install-paths')
+    parser.add_argument('--mobile-share', action='store_true', help='Also verify the installed phone access APIs')
     args = parser.parse_args()
     release = args.release_dir.resolve()
     name = f'LensAtlas-{__version__}-Setup'
@@ -144,6 +145,8 @@ def main():
     # The tag isolates every application write from the real LocalAppData data.
     smoke = [sys.executable, str(ROOT / 'scripts' / 'verify_bundle.py'),
              '--exe', str(installed / 'LensAtlas.exe'), '--tag', tag]
+    if args.mobile_share:
+        smoke.append('--mobile-share')
     subprocess.run(smoke, cwd=ROOT, check=True, timeout=240)
     data = ROOT / '.runtime' / f'{tag}-verification-data'
     (data / 'preserve-settings-qa.txt').write_text('Settings preservation sentinel.', encoding='utf-8')

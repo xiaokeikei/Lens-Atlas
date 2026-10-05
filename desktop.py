@@ -24,13 +24,18 @@ def main():
     from backend.app import create_app
     from backend.config import Config, bundle_root
     from backend.native_player import NativePlayer
+    from backend.mobile_share import MobileShareController
+    from backend.mobile_share_dialog import show_mobile_share_dialog
     parser=argparse.ArgumentParser()
     parser.add_argument('--data-dir')
     parser.add_argument('--smoke-test', action='store_true', help='Run the real native window, save screenshot and exit')
     parser.add_argument('--smoke-output')
     parser.add_argument('--smoke-fixture',help='Explicit synthetic fixture directory, only with --smoke-test')
+    parser.add_argument('--smoke-mobile-share',action='store_true',help='Verify phone APIs on loopback with explicit synthetic smoke data only')
     parser.add_argument('--port',type=int,default=0)
     args=parser.parse_args()
+    if args.smoke_mobile_share and not (args.smoke_test and args.smoke_fixture and args.data_dir):
+        parser.error('--smoke-mobile-share requires --smoke-test, --smoke-fixture and --data-dir')
     data=Path(args.data_dir or os.getenv('LENS_DATA_DIR') or Path(os.getenv('LOCALAPPDATA',str(Path.home()))) / 'LensAtlas')
     data.mkdir(parents=True,exist_ok=True)
     app=QApplication(sys.argv)
@@ -54,6 +59,7 @@ def main():
     config.native_player_status=native_player.status
     config.local_origin=f'http://127.0.0.1:{port}'
     service=create_app(config)
+    mobile_access=MobileShareController(service)
     server=uvicorn.Server(uvicorn.Config(service,host='127.0.0.1',port=port,log_config=None,access_log=False,timeout_graceful_shutdown=5))
     server_thread=threading.Thread(target=lambda:server.run(sockets=[server_socket]),daemon=True,name='local-api')
     server_thread.start()
@@ -76,6 +82,7 @@ def main():
             return url.toString().startswith(base+'/') or url.toString()=='about:blank'
     class Window(QMainWindow):
         def closeEvent(self,event):
+            mobile_access.stop()
             native_player.close()
             server.should_exit=True
             event.accept()
@@ -117,6 +124,10 @@ def main():
     window.setWindowTitle('镜迹 · Lens Atlas')
     window.setWindowIcon(icon)
     window.setCentralWidget(view)
+    phone_menu=window.menuBar().addMenu('手机访问')
+    phone_action=phone_menu.addAction('连接本机图库…')
+    phone_action.setShortcut('Ctrl+M')
+    phone_action.triggered.connect(lambda:show_mobile_share_dialog(window,mobile_access,service.state.db))
     window.resize(1440,960)
     window.setMinimumSize(800,640)
     def download(request):
@@ -136,6 +147,14 @@ def main():
         request.accept()
     profile.downloadRequested.connect(download)
     window.show()
+    if args.smoke_mobile_share:
+        mobile_access.app.state.credentials.set_password('SyntheticMobileSmoke123!')
+        mobile_access.start(port=0,host='127.0.0.1')
+    if service.state.db.setting('mobile-share:auto',False):
+        try:
+            mobile_access.start(service.state.db.setting('mobile-share:port',52033))
+        except (ValueError,RuntimeError,OSError) as e:
+            QMessageBox.warning(window,'手机访问未开启',str(e))
     view.setUrl(QUrl(base+'/'))
     if args.smoke_test:
         output=Path(args.smoke_output or data/'desktop-smoke.json')
@@ -145,7 +164,26 @@ def main():
             page.runJavaScript('JSON.stringify({title:document.title,text:document.body.innerText,charts:document.querySelectorAll("canvas").length})',lambda result:finish(result))
         def finish(result):
             from backend.query import Filters,statistics
-            output.write_text(json.dumps({'url':base,'window':window.isVisible(),'page':json.loads(result or '{}'),'stats':statistics(service.state.db,Filters()),'jobs':service.state.db.rows('SELECT status,phase,errors,message FROM jobs'),'tools':{name:bool(__import__('backend.metadata',fromlist=['tool']).tool(name)) for name in ['exiftool','ffmpeg','ffprobe']}},ensure_ascii=False,indent=2),encoding='utf-8')
+            report={'url':base,'window':window.isVisible(),'page':json.loads(result or '{}'),'stats':statistics(service.state.db,Filters()),'tools':{name:bool(__import__('backend.metadata',fromlist=['tool']).tool(name)) for name in ['exiftool','ffmpeg','ffprobe']}}
+            if args.smoke_mobile_share:
+                with httpx.Client(base_url=f'http://127.0.0.1:{mobile_access.port}') as phone:
+                    login=phone.post('/api/auth/login',json={'password':'SyntheticMobileSmoke123!','remember':True})
+                    login.raise_for_status()
+                    phone.headers['Authorization']='Bearer '+login.json()['token']
+                    info=phone.get('/api/info');info.raise_for_status()
+                    remote=phone.post('/api/stats',json={});remote.raise_for_status()
+                    assert remote.json()==report['stats']
+                    roots=phone.get('/api/roots');roots.raise_for_status()
+                    job=phone.post(f'/api/roots/{roots.json()[0]["id"]}/scan',json={});job.raise_for_status()
+                    control=phone.post(f'/api/jobs/{job.json()["id"]}/cancel',json={});control.raise_for_status()
+                    items=phone.post('/api/assets/query',json={'limit':24,'random':False});items.raise_for_status()
+                    asset=next(item for item in items.json()['items'] if item['kind']=='photo' and item['preview_status']=='ready')
+                    thumbnail=phone.get(asset['thumbnail_url']);thumbnail.raise_for_status()
+                    assert phone.post('/api/roots',json={}).status_code==403
+                    assert info.json()['library_kind']=='computer'
+                    report['mobile_share']={'library_kind':'computer','same_index':True,'scan_start_cancel':True,'thumbnail':True,'directory_management_denied':True,'menu':phone_menu.title()}
+            report['jobs']=service.state.db.rows('SELECT status,phase,errors,message FROM jobs')
+            output.write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
             window.close()
             app.quit()
         if args.smoke_fixture:
@@ -173,6 +211,7 @@ def main():
             QTimer.singleShot(12000,capture)
             QTimer.singleShot(25000,app.quit)
     app.exec()
+    mobile_access.stop()
     server.should_exit=True
     server_thread.join(timeout=config.timeout+10)
     lock.unlock()

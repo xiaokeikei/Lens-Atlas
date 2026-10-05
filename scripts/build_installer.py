@@ -124,13 +124,14 @@ def main():
     parser.add_argument('--output-dir', type=Path, default=ROOT.parent / 'release')
     parser.add_argument('--portable', type=Path, help='Defaults to the Windows ZIP in output-dir')
     parser.add_argument('--iscc', type=Path)
+    parser.add_argument('--evidence', type=Path, default=ROOT / '.runtime' / 'final-verification.json', help='Verification report matching the portable executable')
     parser.add_argument('--check-only', action='store_true', help='Validate the ZIP and report compiler availability without compiling')
     parser.add_argument('--qa', action='store_true', help='Build a separately registered test installer into .runtime/installer-qa')
     args = parser.parse_args()
     output = args.output_dir.resolve()
     archive = (args.portable or output / f'LensAtlas-{__version__}-windows-x64.zip').resolve()
     try:
-        evidence = validate_portable(archive, ROOT / '.runtime' / 'final-verification.json')
+        evidence = validate_portable(archive, args.evidence.resolve())
         if args.check_only:
             try:
                 compiler = str(find_compiler(args.iscc))
